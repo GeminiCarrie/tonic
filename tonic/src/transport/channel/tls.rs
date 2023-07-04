@@ -12,6 +12,7 @@ pub struct ClientTlsConfig {
     domain: Option<String>,
     cert: Option<Certificate>,
     identity: Option<Identity>,
+    rustls_raw: Option<tokio_rustls::rustls::ClientConfig>
 }
 
 impl fmt::Debug for ClientTlsConfig {
@@ -31,6 +32,7 @@ impl ClientTlsConfig {
             domain: None,
             cert: None,
             identity: None,
+            rustls_raw: None,
         }
     }
 
@@ -58,11 +60,27 @@ impl ClientTlsConfig {
         }
     }
 
+    /// Use options specified by the given `ClientConfig` to configure TLS.
+    ///
+    /// This overrides all other TLS options set via other means.
+    pub fn rustls_client_config(self, config: tokio_rustls::rustls::ClientConfig) -> Self {
+        ClientTlsConfig {
+            rustls_raw: Some(config),
+            ..self
+        }
+    }
+
     pub(crate) fn tls_connector(&self, uri: Uri) -> Result<TlsConnector, crate::Error> {
         let domain = match &self.domain {
             None => uri.host().ok_or_else(Error::new_invalid_uri)?.to_string(),
             Some(domain) => domain.clone(),
         };
-        TlsConnector::new(self.cert.clone(), self.identity.clone(), domain)
+        match &self.rustls_raw {
+            None => {
+                TlsConnector::new(self.cert.clone(), self.identity.clone(), domain)
+            }
+            Some(c) => TlsConnector::new_with_rustls_raw(c.clone(), domain),
+        }
+        
     }
 }

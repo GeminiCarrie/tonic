@@ -101,7 +101,19 @@ impl TlsConnector {
 
         Ok(tls_io)
     }
+    
+    #[cfg(feature = "tls")]
+    pub(crate) fn new_with_rustls_raw(
+        config: tokio_rustls::rustls::ClientConfig,
+        domain: String,
+    ) -> Result<Self, crate::Error> {
+        Ok(Self {
+            config: Arc::new(config),
+            domain: Arc::new(domain.as_str().try_into()?),
+        })
+    }
 }
+
 
 impl fmt::Debug for TlsConnector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -155,6 +167,15 @@ impl TlsAcceptor {
     {
         let acceptor = RustlsAcceptor::from(self.inner.clone());
         acceptor.accept(io).await.map_err(Into::into)
+    }
+
+    #[cfg(feature = "tls")]
+    pub(crate) fn new_with_rustls_raw(
+        config: tokio_rustls::rustls::ServerConfig,
+    ) -> Result<Self, crate::Error> {
+        Ok(Self {
+            inner: Arc::new(config),
+        })
     }
 }
 
